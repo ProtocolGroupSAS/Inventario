@@ -3,3 +3,4 @@ pandas
 openpyxl
 xlsxwriter
 psycopg2-binary
+plotly
