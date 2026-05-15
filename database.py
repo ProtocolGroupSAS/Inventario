@@ -59,6 +59,9 @@ class PostgresCursor:
     @property
     def description(self):
         return self.cursor.description
+        
+    def close(self):
+        self.cursor.close()
 
 def get_connection():
     url = get_db_url()
