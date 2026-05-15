@@ -179,7 +179,7 @@ with st.sidebar:
     st.markdown('<div class="logo-container"><span class="logo-text">protocol<span class="logo-dot">.</span></span></div>', unsafe_allow_html=True)
     
     if st.session_state.admin_logged_in:
-        menu_options = ["Salidas", "Entradas", "Solicitar Material", "Inventario", "Dashboard", "Proyectos", "Ordenes de Compra", "Analisis", "Usuarios", "Backup"]
+        menu_options = ["Salidas", "Entradas", "Solicitar Material", "Inventario", "Dashboard", "Proyectos", "Ordenes de Compra", "Analisis", " Configs", " Importar/Exportar", "Usuarios", "Backup"]
     else:
         menu_options = ["Salidas", "Entradas", "Solicitar Material"]
     
