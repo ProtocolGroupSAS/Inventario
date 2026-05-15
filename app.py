@@ -276,15 +276,15 @@ elif page == "Inventario" and st.session_state.admin_logged_in:
     
     with t_list:
         df_s = pd.read_sql_query("""
-            SELECT i.id as ID, i.nombre_insumo as MATERIAL, i.unidad_medida as UND,
-                   COALESCE((SELECT SUM(cantidad) FROM movimientos WHERE insumo_id = i.id AND tipo = 'ENTRADA'), 0) as INGRESADO,
-                   COALESCE((SELECT SUM(cantidad) FROM movimientos WHERE insumo_id = i.id AND tipo = 'SALIDA'), 0) as SALIDO,
-                   i.stock_actual as STOCK,
-                   COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id), 0) as COMPROMETIDO,
-                   (i.stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id), 0)) as DISPONIBLE,
-                   0 as FALTANTE,
-                   i.ajuste_precio as AJUSTE, i.ultimo_precio as PRECIO, (i.ultimo_precio + i.ajuste_precio) as PRECIO_AJUSTADO,
-                   cat.nombre as CATEGORIA, cta.nombre as CUENTA
+            SELECT i.id as "ID", i.nombre_insumo as "MATERIAL", i.unidad_medida as "UND",
+                   COALESCE((SELECT SUM(cantidad) FROM movimientos WHERE insumo_id = i.id AND tipo = 'ENTRADA'), 0) as "INGRESADO",
+                   COALESCE((SELECT SUM(cantidad) FROM movimientos WHERE insumo_id = i.id AND tipo = 'SALIDA'), 0) as "SALIDO",
+                   i.stock_actual as "STOCK",
+                   COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id), 0) as "COMPROMETIDO",
+                   (i.stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id), 0)) as "DISPONIBLE",
+                   0 as "FALTANTE",
+                   i.ajuste_precio as "AJUSTE", i.ultimo_precio as "PRECIO", (i.ultimo_precio + i.ajuste_precio) as "PRECIO_AJUSTADO",
+                   cat.nombre as "CATEGORIA", cta.nombre as "CUENTA"
             FROM insumos i
             LEFT JOIN categorias cat ON i.categoria_id = cat.id
             LEFT JOIN cuentas_contables cta ON i.cuenta_id = cta.id
@@ -325,7 +325,7 @@ elif page == "Inventario" and st.session_state.admin_logged_in:
         st.write("#### Distribucion de Stock Comprometido por Proyecto")
         conn = get_connection()
         df_sc = pd.read_sql_query("""
-            SELECT sc.insumo_id as INS_ID, i.nombre_insumo as MATERIAL, sc.proyecto_id as PROY_ID, p.nombre_proyecto as PROYECTO, sc.cantidad as SEPARADO
+            SELECT sc.insumo_id as "INS_ID", i.nombre_insumo as "MATERIAL", sc.proyecto_id as "PROY_ID", p.nombre_proyecto as "PROYECTO", sc.cantidad as "SEPARADO"
             FROM stock_comprometido sc 
             JOIN insumos i ON sc.insumo_id = i.id 
             JOIN proyectos p ON sc.proyecto_id = p.id
@@ -388,12 +388,12 @@ elif page == "Dashboard" and st.session_state.admin_logged_in:
         import plotly.express as px
         conn = get_connection()
         df_py = pd.read_sql_query("""
-            SELECT p.nombre_proyecto as PROYECTO, SUM(m.cantidad * m.precio_unitario) as TOTAL
+            SELECT p.nombre_proyecto as "PROYECTO", SUM(m.cantidad * m.precio_unitario) as "TOTAL"
             FROM movimientos m JOIN proyectos p ON m.proyecto_id = p.id
             WHERE m.tipo = 'SALIDA' GROUP BY p.nombre_proyecto
         """, conn)
         df_top = pd.read_sql_query("""
-            SELECT i.nombre_insumo as MATERIAL, SUM(m.cantidad) as CONSUMO
+            SELECT i.nombre_insumo as "MATERIAL", SUM(m.cantidad) as "CONSUMO"
             FROM movimientos m JOIN insumos i ON m.insumo_id = i.id
             WHERE m.tipo = 'SALIDA' GROUP BY i.nombre_insumo ORDER BY CONSUMO DESC LIMIT 5
         """, conn)
@@ -429,11 +429,11 @@ elif page == "Proyectos" and st.session_state.admin_logged_in:
         st.write("#### Materiales del Proyecto")
         conn = get_connection()
         df_pm = pd.read_sql_query(f'''
-            SELECT i.id as INS_ID, i.nombre_insumo as MATERIAL, pm.solicitado as SOLICITADO,
-                   COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id AND proyecto_id = {proy_id}), 0) as SEPARADO,
-                   COALESCE((SELECT SUM(cantidad) FROM movimientos WHERE insumo_id = i.id AND proyecto_id = {proy_id} AND tipo = 'SALIDA'), 0) as CONSUMIDO,
-                   (i.ultimo_precio + i.ajuste_precio) as PRECIO_UNITARIO,
-                   (i.stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id), 0)) as DISP_GENERAL
+            SELECT i.id as "INS_ID", i.nombre_insumo as "MATERIAL", pm.solicitado as "SOLICITADO",
+                   COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id AND proyecto_id = {proy_id}), 0) as "SEPARADO",
+                   COALESCE((SELECT SUM(cantidad) FROM movimientos WHERE insumo_id = i.id AND proyecto_id = {proy_id} AND tipo = 'SALIDA'), 0) as "CONSUMIDO",
+                   (i.ultimo_precio + i.ajuste_precio) as "PRECIO_UNITARIO",
+                   (i.stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = i.id), 0)) as "DISP_GENERAL"
             FROM proyecto_materiales pm
             JOIN insumos i ON pm.insumo_id = i.id
             WHERE pm.proyecto_id = {proy_id}
@@ -522,7 +522,7 @@ elif page == "Ordenes de Compra" and st.session_state.admin_logged_in:
         st.write("Visualiza las órdenes generales o por proyecto.")
         conn = get_connection()
         df_o = pd.read_sql_query("""
-            SELECT oc.id as ID, COALESCE(p.nombre_proyecto, 'ORDEN GENERAL') as PROYECTO, oc.fecha as FECHA
+            SELECT oc.id as "ID", COALESCE(p.nombre_proyecto, 'ORDEN GENERAL') as "PROYECTO", oc.fecha as "FECHA"
             FROM ordenes_compra oc LEFT JOIN proyectos p ON oc.proyecto_id = p.id ORDER BY oc.id DESC
         """, conn)
         conn.close()
@@ -532,8 +532,8 @@ elif page == "Ordenes de Compra" and st.session_state.admin_logged_in:
                 with st.expander(f"Orden #{r['ID']} - {r['PROYECTO']} ({r['FECHA']})"):
                     conn = get_connection()
                     df_items = pd.read_sql_query(f"""
-                        SELECT i.id as ID, i.nombre_insumo as MATERIAL, 
-                               oi.solicitado as REQUERIDO, oi.disponible as SEPARADO, oi.faltante as A_COMPRAR
+                        SELECT i.id as "ID", i.nombre_insumo as "MATERIAL", 
+                               oi.solicitado as "REQUERIDO", oi.disponible as "SEPARADO", oi.faltante as "A_COMPRAR"
                         FROM ordenes_items oi 
                         JOIN insumos i ON oi.insumo_id = i.id 
                         WHERE oi.orden_id={r['ID']}
@@ -559,7 +559,7 @@ elif page == "Ordenes de Compra" and st.session_state.admin_logged_in:
         if 'oc_gen_cart' not in st.session_state: st.session_state.oc_gen_cart = []
         
         conn = get_connection()
-        df_i = pd.read_sql_query("SELECT id, nombre_insumo, (stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = insumos.id), 0)) as DISP FROM insumos", conn)
+        df_i = pd.read_sql_query("SELECT id, nombre_insumo, (stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = insumos.id), 0)) as "DISP" FROM insumos", conn)
         conn.close()
         
         if not df_i.empty:
@@ -608,11 +608,11 @@ elif page == "Analisis" and st.session_state.admin_logged_in:
     conn = get_connection()
     # Query for ENTRADAS
     df_in = pd.read_sql_query("""
-        SELECT m.id as ID, m.fecha_hora as FECHA, i.nombre_insumo as MATERIAL, m.proveedor as PROVEEDOR,
-               cat.nombre as CATEGORIA, cta.nombre as CUENTA,
-               m.cantidad as CANTIDAD, m.precio_unitario as PRECIO,
-               (m.cantidad * m.precio_unitario) as TOTAL,
-               u.nombre || ' ' || u.apellido as RESPONSABLE
+        SELECT m.id as "ID", m.fecha_hora as "FECHA", i.nombre_insumo as "MATERIAL", m.proveedor as "PROVEEDOR",
+               cat.nombre as "CATEGORIA", cta.nombre as "CUENTA",
+               m.cantidad as "CANTIDAD", m.precio_unitario as "PRECIO",
+               (m.cantidad * m.precio_unitario) as "TOTAL",
+               u.nombre || ' ' || u.apellido as "RESPONSABLE"
         FROM movimientos m
         JOIN insumos i ON m.insumo_id = i.id
         LEFT JOIN categorias cat ON i.categoria_id = cat.id
@@ -623,12 +623,12 @@ elif page == "Analisis" and st.session_state.admin_logged_in:
     
     # Query for SALIDAS (Added PRECIO to outputs based on ultimo_precio)
     df_out = pd.read_sql_query("""
-        SELECT m.id as ID, m.fecha_hora as FECHA, i.nombre_insumo as MATERIAL, p.nombre_proyecto as PROYECTO,
-               cat.nombre as CATEGORIA, cta.nombre as CUENTA,
-               m.cantidad as CANTIDAD,
-               m.precio_unitario as PRECIO,
-               (m.cantidad * m.precio_unitario) as VALOR_TOTAL,
-               u.nombre || ' ' || u.apellido as RESPONSABLE
+        SELECT m.id as "ID", m.fecha_hora as "FECHA", i.nombre_insumo as "MATERIAL", p.nombre_proyecto as "PROYECTO",
+               cat.nombre as "CATEGORIA", cta.nombre as "CUENTA",
+               m.cantidad as "CANTIDAD",
+               m.precio_unitario as "PRECIO",
+               (m.cantidad * m.precio_unitario) as "VALOR_TOTAL",
+               u.nombre || ' ' || u.apellido as "RESPONSABLE"
         FROM movimientos m
         JOIN insumos i ON m.insumo_id = i.id
         LEFT JOIN proyectos p ON m.proyecto_id = p.id
@@ -746,7 +746,7 @@ elif page == " Configs" and st.session_state.admin_logged_in:
                 except sqlite3.IntegrityError: st.error("Error: Proveedor o NIT duplicado.")
                 finally: conn.close()
                 
-        df_pr = get_data("proveedores", "id, nombre as NOMBRE, nit as NIT", "id DESC")
+        df_pr = get_data("proveedores", "id, nombre as "NOMBRE", nit as NIT", "id DESC")
         if not df_pr.empty:
             df_pr.insert(0, "ELIMINAR", False)
             ed_pr = st.data_editor(df_pr, hide_index=True, key="ed_proveedores", disabled=["id"])
@@ -769,10 +769,10 @@ elif page == " Importar/Exportar" and st.session_state.admin_logged_in:
         if st.button(" DESCARGAR EXCEL COMPLETO"):
             conn = get_connection()
             df_i = pd.read_sql_query("""
-                SELECT i.id, i.nombre_insumo as NOMBRE, i.unidad_medida as UNIDAD, i.stock_actual as STOCK,
-                       i.ultimo_precio as PRECIO, i.ajuste_precio as AJUSTE,
-                       i.ultimo_proveedor as PROVEEDOR,
-                       c.nombre as CATEGORIA, cta.nombre as CUENTA
+                SELECT i.id, i.nombre_insumo as "NOMBRE", i.unidad_medida as "UNIDAD", i.stock_actual as "STOCK",
+                       i.ultimo_precio as "PRECIO", i.ajuste_precio as "AJUSTE",
+                       i.ultimo_proveedor as "PROVEEDOR",
+                       c.nombre as "CATEGORIA", cta.nombre as "CUENTA"
                 FROM insumos i
                 LEFT JOIN categorias c ON i.categoria_id = c.id
                 LEFT JOIN cuentas_contables cta ON i.cuenta_id = cta.id
