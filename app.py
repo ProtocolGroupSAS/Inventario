@@ -395,7 +395,7 @@ elif page == "Dashboard" and st.session_state.admin_logged_in:
         df_top = pd.read_sql_query("""
             SELECT i.nombre_insumo as "MATERIAL", SUM(m.cantidad) as "CONSUMO"
             FROM movimientos m JOIN insumos i ON m.insumo_id = i.id
-            WHERE m.tipo = 'SALIDA' GROUP BY i.nombre_insumo ORDER BY CONSUMO DESC LIMIT 5
+            WHERE m.tipo = 'SALIDA' GROUP BY i.nombre_insumo ORDER BY "CONSUMO" DESC LIMIT 5
         """, conn)
         conn.close()
         
