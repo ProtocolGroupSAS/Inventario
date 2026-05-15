@@ -55,6 +55,10 @@ class PostgresCursor:
         
     def fetchmany(self, size):
         return self.cursor.fetchmany(size)
+        
+    @property
+    def description(self):
+        return self.cursor.description
 
 def get_connection():
     url = get_db_url()
