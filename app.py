@@ -559,7 +559,7 @@ elif page == "Ordenes de Compra" and st.session_state.admin_logged_in:
         if 'oc_gen_cart' not in st.session_state: st.session_state.oc_gen_cart = []
         
         conn = get_connection()
-        df_i = pd.read_sql_query("SELECT id, nombre_insumo, (stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = insumos.id), 0)) as "DISP" FROM insumos", conn)
+        df_i = pd.read_sql_query('SELECT id, nombre_insumo, (stock_actual - COALESCE((SELECT SUM(cantidad) FROM stock_comprometido WHERE insumo_id = insumos.id), 0)) as "DISP" FROM insumos', conn)
         conn.close()
         
         if not df_i.empty:
@@ -746,7 +746,7 @@ elif page == " Configs" and st.session_state.admin_logged_in:
                 except sqlite3.IntegrityError: st.error("Error: Proveedor o NIT duplicado.")
                 finally: conn.close()
                 
-        df_pr = get_data("proveedores", "id, nombre as "NOMBRE", nit as NIT", "id DESC")
+        df_pr = get_data('proveedores', 'id, nombre as "NOMBRE", nit as NIT', 'id DESC')
         if not df_pr.empty:
             df_pr.insert(0, "ELIMINAR", False)
             ed_pr = st.data_editor(df_pr, hide_index=True, key="ed_proveedores", disabled=["id"])
