@@ -243,8 +243,8 @@ if page == "Salidas":
         u_opt = {f"{r['nombre']} {r['apellido']}": r['id'] for _, r in df_us.iterrows()}
         
         c1, c2 = st.columns(2)
-        proy_name = c1.selectbox("Proyecto Destino", list(p_opts.keys()))
-        u_sel_name = c2.selectbox("Quien entrega?", list(u_opt.keys()))
+        proy_name = c1.selectbox("Proyecto Destino", list(p_opts.keys()), index=None, placeholder="Seleccione Proyecto")
+        u_sel_name = c2.selectbox("Quien entrega?", list(u_opt.keys()), index=None, placeholder="Seleccione Usuario")
     
     # 2. Agregar Items a la lista
     with st.expander("2. Agregar Materiales a la Lista", expanded=True):
@@ -252,8 +252,8 @@ if page == "Salidas":
         i_opts = {f"{r['nombre_insumo']} (Stock: {r['stock_actual']})": (r['id'], r['nombre_insumo'], r['stock_actual']) for _, r in df_i.iterrows()} if not df_i.empty else {}
         
         ca1, ca2, ca3 = st.columns([2, 1, 1])
-        sel_i_key = ca1.selectbox("Material", list(i_opts.keys()), key="salida_mat_sel")
-        cant = ca2.number_input("Cantidad", min_value=0.01, key="salida_cant")
+        sel_i_key = ca1.selectbox("Material", list(i_opts.keys()), key="salida_mat_sel", index=None, placeholder="Seleccione Material")
+        cant = ca2.number_input("Cantidad", min_value=0.01, key="salida_cant", value=None)
         
         if ca3.button("➕ Agregar a Lista", use_container_width=True):
             if sel_i_key:
@@ -328,9 +328,9 @@ elif page == "Entradas":
         i_opts = {r['nombre_insumo']: r['id'] for _, r in df_i.iterrows()} if not df_i.empty else {}
         
         ca1, ca2, ca3 = st.columns([2, 1, 1])
-        ins_name = ca1.selectbox("Material", list(i_opts.keys()), key="ent_mat_sel")
-        cant = ca2.number_input("Cantidad", min_value=0.01, key="ent_cant")
-        precio = ca3.number_input("Precio Unitario", min_value=0.0, key="ent_precio")
+        ins_name = ca1.selectbox("Material", list(i_opts.keys()), key="ent_mat_sel", index=None, placeholder="Seleccione Material")
+        cant = ca2.number_input("Cantidad", min_value=0.01, key="ent_cant", value=None)
+        precio = ca3.number_input("Precio Unitario", min_value=0.0, key="ent_precio", value=None)
         
         if st.button("➕ Agregar a Lista", key="btn_add_ent"):
             if ins_name:
