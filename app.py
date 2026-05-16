@@ -68,11 +68,15 @@ st.markdown("""
         border-radius: 12px;
         border: none;
         background-color: #00AEEF;
-        color: white;
+        color: white !important;
         font-weight: 700;
         height: 3rem;
         transition: all 0.3s ease;
         box-shadow: 0 4px 6px rgba(0, 174, 239, 0.2);
+    }
+    
+    .stButton>button div p {
+        color: white !important;
     }
     
     .stButton>button:hover {
@@ -137,10 +141,25 @@ st.markdown("""
     @media screen and (max-width: 1024px) {
         .main { padding: 1rem; }
         .logo-text { font-size: 2.2rem; }
-        .stButton>button { height: 2.8rem; font-size: 1rem; }
+        .stButton>button { height: 3.5rem; font-size: 1.1rem; color: white !important; }
         [data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; }
         [data-testid="stHorizontalBlock"] > div { min-width: 280px !important; flex: 1 1 auto !important; }
         [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
+        
+        /* Aumentar tamaño de opciones de radio en móviles */
+        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+            font-size: 1.2rem !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+            font-size: 1.2rem !important;
+        }
+        div[role="radiogroup"] label {
+            padding: 12px 0px !important;
+            font-size: 1.1rem !important;
+        }
+        div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p {
+            font-size: 1.1rem !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
