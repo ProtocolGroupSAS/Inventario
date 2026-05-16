@@ -31,6 +31,9 @@ if 'admin_logged_in' not in st.session_state: st.session_state.admin_logged_in =
 if 'admin_user' not in st.session_state: st.session_state.admin_user = None
 if 'feedback' not in st.session_state: st.session_state.feedback = None
 if 'current_page' not in st.session_state: st.session_state.current_page = "Salidas"
+if 'salida_cart' not in st.session_state: st.session_state.salida_cart = []
+if 'entrada_cart' not in st.session_state: st.session_state.entrada_cart = []
+if 'solicitud_cart' not in st.session_state: st.session_state.solicitud_cart = []
 
 # --- CUSTOM CSS ---
 st.markdown("""
@@ -230,64 +233,139 @@ if st.session_state.feedback:
     st.session_state.feedback = None
 
 if page == "Salidas":
-    st.subheader("Registro de Salida de Material")
-    with st.form("salida_form"):
+    st.subheader("Registro de Salida de Material (Carga Masiva)")
+    
+    # 1. Datos Generales (Se mantienen para todos los items)
+    with st.expander("1. Datos del Proyecto y Responsable", expanded=True):
+        df_p = get_data("proyectos")
+        p_opts = {r['nombre_proyecto']: r['id'] for _, r in df_p.iterrows()} if not df_p.empty else {}
+        df_us = get_data("users", "id, nombre, apellido")
+        u_opt = {f"{r['nombre']} {r['apellido']}": r['id'] for _, r in df_us.iterrows()}
+        
+        c1, c2 = st.columns(2)
+        proy_name = c1.selectbox("Proyecto Destino", list(p_opts.keys()))
+        u_sel_name = c2.selectbox("Quien entrega?", list(u_opt.keys()))
+    
+    # 2. Agregar Items a la lista
+    with st.expander("2. Agregar Materiales a la Lista", expanded=True):
         df_i = pd.read_sql_query("SELECT id, nombre_insumo, stock_actual, unidad_medida FROM insumos", get_connection())
         i_opts = {f"{r['nombre_insumo']} (Stock: {r['stock_actual']})": (r['id'], r['nombre_insumo'], r['stock_actual']) for _, r in df_i.iterrows()} if not df_i.empty else {}
         
-        df_p = get_data("proyectos")
-        p_opts = {r['nombre_proyecto']: r['id'] for _, r in df_p.iterrows()} if not df_p.empty else {}
+        ca1, ca2, ca3 = st.columns([2, 1, 1])
+        sel_i_key = ca1.selectbox("Material", list(i_opts.keys()), key="salida_mat_sel")
+        cant = ca2.number_input("Cantidad", min_value=0.01, key="salida_cant")
         
-        c1, c2 = st.columns(2)
-        sel_i_key = c1.selectbox("Material", list(i_opts.keys()))
-        proy_name = c1.selectbox("Proyecto Destino", list(p_opts.keys()))
-        cant = c2.number_input("Cantidad", min_value=0.01)
-        
-        df_us = get_data("users", "id, nombre, apellido")
-        u_opt = {f"{r['nombre']} {r['apellido']}": r['id'] for _, r in df_us.iterrows()}
-        u_sel_name = c2.selectbox("Quien entrega?", list(u_opt.keys()))
-        pin = c2.text_input("PIN Autorizacion", type="password")
-        
-        if st.form_submit_button("Registrar Salida"):
-            if not all([sel_i_key, proy_name, u_sel_name, pin]): st.error("Faltan datos")
-            else:
+        if ca3.button("➕ Agregar a Lista", use_container_width=True):
+            if sel_i_key:
                 ins_id, m_name, stock = i_opts[sel_i_key]
+                # Verificar si ya está en el carrito para no duplicar filas sino sumar (opcional, aquí solo agregamos)
+                st.session_state.salida_cart.append({
+                    "ID": ins_id,
+                    "MATERIAL": m_name,
+                    "CANTIDAD": cant,
+                    "STOCK_ACTUAL": stock
+                })
+                st.rerun()
+
+    # 3. Mostrar Lista y Procesar
+    if st.session_state.salida_cart:
+        st.write("#### Lista de Materiales a Salir")
+        df_cart = pd.DataFrame(st.session_state.salida_cart)
+        
+        # Permitir eliminar de la lista
+        df_cart.insert(0, "QUITAR", False)
+        ed_cart = st.data_editor(df_cart, use_container_width=True, hide_index=True, key="ed_salida_cart")
+        
+        if st.button("Limpiar Lista"):
+            st.session_state.salida_cart = []
+            st.rerun()
+
+        # Actualizar el carrito si se quitó algo
+        if not ed_cart[ed_cart["QUITAR"]].empty:
+            st.session_state.salida_cart = ed_cart[~ed_cart["QUITAR"]].drop(columns=["QUITAR"]).to_dict('records')
+            st.rerun()
+            
+        st.write("---")
+        c_p1, c_p2 = st.columns([1, 1])
+        pin = c_p1.text_input("PIN Autorizacion para Procesar Todo", type="password")
+        
+        if c_p2.button("🚀 REGISTRAR TODA LA SALIDA", use_container_width=True):
+            if not pin: st.error("Debe ingresar el PIN")
+            else:
                 p_id = p_opts[proy_name]
                 u_id = u_opt[u_sel_name]
                 if verify_user_pin(u_id, pin):
-                    if cant > stock: st.error("Stock insuficiente")
-                    else:
-                        conn = get_connection(); cursor = conn.cursor()
+                    conn = get_connection(); cursor = conn.cursor()
+                    errores = []
+                    for item in st.session_state.salida_cart:
+                        if item['CANTIDAD'] > item['STOCK_ACTUAL']:
+                            errores.append(f"Stock insuficiente para {item['MATERIAL']}")
+                            continue
+                        
                         cursor.execute("INSERT INTO movimientos (insumo_id, proyecto_id, user_id, tipo, cantidad, fecha_hora) VALUES (?, ?, ?, 'SALIDA', ?, ?)",
-                                       (ins_id, p_id, u_id, cant, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                        cursor.execute("UPDATE insumos SET stock_actual = stock_actual - ? WHERE id=?", (cant, ins_id))
-                        # Update committed stock
-                        cursor.execute("UPDATE stock_comprometido SET cantidad = MAX(0, cantidad - ?) WHERE insumo_id=? AND proyecto_id=?", (cant, ins_id, p_id))
+                                       (item['ID'], p_id, u_id, item['CANTIDAD'], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        cursor.execute("UPDATE insumos SET stock_actual = stock_actual - ? WHERE id=?", (item['CANTIDAD'], item['ID']))
+                        cursor.execute("UPDATE stock_comprometido SET cantidad = MAX(0, cantidad - ?) WHERE insumo_id=? AND proyecto_id=?", (item['CANTIDAD'], item['ID'], p_id))
+                    
+                    if errores:
+                        st.error(" / ".join(errores))
+                    else:
                         conn.commit(); conn.close()
-                        st.session_state.feedback = ("Salida registrada correctamente", "success"); st.rerun()
+                        st.session_state.salida_cart = []
+                        st.session_state.feedback = ("Todas las salidas registradas correctamente", "success"); st.rerun()
                 else: st.error("PIN Incorrecto")
 
 elif page == "Entradas":
-    st.subheader("Registro de Entrada de Material")
-    with st.form("entrada_form"):
+    st.subheader("Registro de Entrada de Material (Carga Masiva)")
+    
+    # 1. Datos del Proveedor
+    with st.expander("1. Datos de la Compra", expanded=True):
+        prov = st.text_input("Proveedor").upper()
+    
+    # 2. Agregar Items
+    with st.expander("2. Agregar Materiales a la Lista", expanded=True):
         df_i = get_data("insumos", "id, nombre_insumo")
         i_opts = {r['nombre_insumo']: r['id'] for _, r in df_i.iterrows()} if not df_i.empty else {}
-        c1, c2 = st.columns(2)
-        ins_name = c1.selectbox("Material", list(i_opts.keys()))
-        cant = c1.number_input("Cantidad", min_value=0.01)
-        prov = c2.text_input("Proveedor").upper()
-        precio = c2.number_input("Precio Unitario", min_value=0.0)
         
-        if st.form_submit_button("Registrar Entrada"):
-            if not all([ins_name, cant, precio]): st.error("Faltan datos")
-            else:
-                i_id = i_opts[ins_name]
-                conn = get_connection(); cursor = conn.cursor()
+        ca1, ca2, ca3 = st.columns([2, 1, 1])
+        ins_name = ca1.selectbox("Material", list(i_opts.keys()), key="ent_mat_sel")
+        cant = ca2.number_input("Cantidad", min_value=0.01, key="ent_cant")
+        precio = ca3.number_input("Precio Unitario", min_value=0.0, key="ent_precio")
+        
+        if st.button("➕ Agregar a Lista", key="btn_add_ent"):
+            if ins_name:
+                st.session_state.entrada_cart.append({
+                    "ID": i_opts[ins_name],
+                    "MATERIAL": ins_name,
+                    "CANTIDAD": cant,
+                    "PRECIO": precio
+                })
+                st.rerun()
+
+    # 3. Mostrar Lista y Procesar
+    if st.session_state.entrada_cart:
+        st.write("#### Lista de Materiales a Ingresar")
+        df_cart = pd.DataFrame(st.session_state.entrada_cart)
+        df_cart.insert(0, "QUITAR", False)
+        ed_cart = st.data_editor(df_cart, use_container_width=True, hide_index=True, key="ed_ent_cart")
+        
+        if st.button("Limpiar Lista", key="btn_clear_ent"):
+            st.session_state.entrada_cart = []
+            st.rerun()
+            
+        if not ed_cart[ed_cart["QUITAR"]].empty:
+            st.session_state.entrada_cart = ed_cart[~ed_cart["QUITAR"]].drop(columns=["QUITAR"]).to_dict('records')
+            st.rerun()
+
+        if st.button("🚀 REGISTRAR TODA LA ENTRADA", use_container_width=True):
+            conn = get_connection(); cursor = conn.cursor()
+            for item in st.session_state.entrada_cart:
                 cursor.execute("INSERT INTO movimientos (insumo_id, tipo, cantidad, precio_unitario, proveedor, fecha_hora) VALUES (?, 'ENTRADA', ?, ?, ?, ?)",
-                               (i_id, cant, precio, prov, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                cursor.execute("UPDATE insumos SET stock_actual = stock_actual + ?, ultimo_precio = ? WHERE id=?", (cant, precio, i_id))
-                conn.commit(); conn.close()
-                st.session_state.feedback = ("Entrada registrada correctamente", "success"); st.rerun()
+                               (item['ID'], item['CANTIDAD'], item['PRECIO'], prov, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                cursor.execute("UPDATE insumos SET stock_actual = stock_actual + ?, ultimo_precio = ? WHERE id=?", (item['CANTIDAD'], item['PRECIO'], item['ID']))
+            conn.commit(); conn.close()
+            st.session_state.entrada_cart = []
+            st.session_state.feedback = ("Todas las entradas registradas correctamente", "success"); st.rerun()
 
 elif page == "Inventario" and st.session_state.admin_logged_in:
     st.subheader("Gestion de Inventario")
@@ -387,17 +465,72 @@ elif page == "Inventario" and st.session_state.admin_logged_in:
                 st.session_state.feedback = ("Insumo creado", "success"); st.rerun()
 
 elif page == "Solicitar Material":
-    st.subheader("Solicitud de Material")
-    with st.form("req_form"):
-        df_i = get_data("insumos", "nombre_insumo")
-        i_list = ["(NUEVO)"] + list(df_i['nombre_insumo'])
-        mat = st.selectbox("Material", i_list)
-        if mat == "(NUEVO)": mat = st.text_input("Especificar Material").upper()
-        cant = st.number_input("Cantidad", min_value=0.1)
-        u_sel = st.selectbox("Solicitante", ["ADMIN", "USER"])
-        pin = st.text_input("PIN", type="password")
-        if st.form_submit_button("Enviar Solicitud"):
-            st.success("Solicitud enviada")
+    st.subheader("Solicitud de Material (Carga Masiva)")
+    
+    # 1. Datos del Solicitante
+    with st.expander("1. Datos del Solicitante", expanded=True):
+        df_us = get_data("users", "id, nombre, apellido")
+        u_opt = {f"{r['nombre']} {r['apellido']}": r['id'] for _, r in df_us.iterrows()}
+        u_sel_name = st.selectbox("Quien solicita?", list(u_opt.keys()), key="req_u_sel")
+    
+    # 2. Agregar Items
+    with st.expander("2. Agregar Materiales a la Lista", expanded=True):
+        df_i = get_data("insumos", "id, nombre_insumo")
+        i_opts = {r['nombre_insumo']: r['id'] for _, r in df_i.iterrows()} if not df_i.empty else {}
+        i_list = ["(NUEVO)"] + list(i_opts.keys())
+        
+        ca1, ca2, ca3 = st.columns([2, 1, 1])
+        mat_sel = ca1.selectbox("Material", i_list, key="req_mat_sel")
+        if mat_sel == "(NUEVO)":
+            mat_name = ca1.text_input("Especificar Material Nuevo", key="req_mat_new").upper()
+            ins_id = None
+        else:
+            mat_name = mat_sel
+            ins_id = i_opts[mat_sel]
+            
+        cant = ca2.number_input("Cantidad", min_value=0.1, key="req_cant")
+        
+        if ca3.button("➕ Agregar", key="btn_add_req"):
+            if mat_name:
+                st.session_state.solicitud_cart.append({
+                    "ID": ins_id,
+                    "MATERIAL": mat_name,
+                    "CANTIDAD": cant
+                })
+                st.rerun()
+
+    # 3. Mostrar Lista y Procesar
+    if st.session_state.solicitud_cart:
+        st.write("#### Lista de Materiales Solicitados")
+        df_cart = pd.DataFrame(st.session_state.solicitud_cart)
+        df_cart.insert(0, "QUITAR", False)
+        ed_cart = st.data_editor(df_cart, use_container_width=True, hide_index=True, key="ed_req_cart")
+        
+        if st.button("Limpiar Lista", key="btn_clear_req"):
+            st.session_state.solicitud_cart = []
+            st.rerun()
+
+        if not ed_cart[ed_cart["QUITAR"]].empty:
+            st.session_state.solicitud_cart = ed_cart[~ed_cart["QUITAR"]].drop(columns=["QUITAR"]).to_dict('records')
+            st.rerun()
+            
+        st.write("---")
+        c_p1, c_p2 = st.columns([1, 1])
+        pin = c_p1.text_input("PIN para Confirmar Solicitud", type="password", key="req_pin")
+        
+        if c_p2.button("🚀 ENVIAR TODA LA SOLICITUD", use_container_width=True):
+            if not pin: st.error("Debe ingresar el PIN")
+            else:
+                u_id = u_opt[u_sel_name]
+                if verify_user_pin(u_id, pin):
+                    conn = get_connection(); cursor = conn.cursor()
+                    for item in st.session_state.solicitud_cart:
+                        cursor.execute("INSERT INTO solicitudes (user_id, material, insumo_id, cantidad, fecha, estado) VALUES (?, ?, ?, ?, ?, 'PENDIENTE')",
+                                       (u_id, item['MATERIAL'], item['ID'], item['CANTIDAD'], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    conn.commit(); conn.close()
+                    st.session_state.solicitud_cart = []
+                    st.session_state.feedback = ("Todas las solicitudes enviadas correctamente", "success"); st.rerun()
+                else: st.error("PIN Incorrecto")
 
 
 # --- ADMIN RESTRICTED PAGES ---
