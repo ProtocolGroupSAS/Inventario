@@ -574,7 +574,7 @@ elif page == "Proyectos" and st.session_state.admin_logged_in:
             req_cant = c_r2.number_input("Cantidad a Requerir", min_value=0.01)
             if c_r3.button("Añadir al Proyecto") and req_i_name:
                 conn = get_connection(); cursor = conn.cursor()
-                cursor.execute("INSERT INTO proyecto_materiales (proyecto_id, insumo_id, solicitado) VALUES (?, ?, ?) ON CONFLICT(proyecto_id, insumo_id) DO UPDATE SET solicitado = solicitado + ?", (proy_id, i_opts[req_i_name], req_cant, req_cant))
+                cursor.execute("INSERT INTO proyecto_materiales (proyecto_id, insumo_id, solicitado) VALUES (?, ?, ?) ON CONFLICT(proyecto_id, insumo_id) DO UPDATE SET solicitado = proyecto_materiales.solicitado + EXCLUDED.solicitado", (proy_id, i_opts[req_i_name], req_cant))
                 conn.commit(); conn.close()
                 st.session_state.feedback = (" Requerimiento añadido.", "success"); st.rerun()
                 
