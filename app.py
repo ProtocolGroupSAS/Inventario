@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import get_connection, init_db, backup_db
+from database import get_connection, init_db, backup_db, IntegrityError, Error
 from datetime import datetime, date
 import sqlite3
 import hashlib
@@ -186,7 +186,7 @@ def delete_item(table, item_id):
                 cursor.execute("UPDATE insumos SET stock_actual = stock_actual + ? WHERE id=?", (m[1] * f, m[0]))
         cursor.execute(f"DELETE FROM {table} WHERE id=?", (item_id,))
         conn.commit(); return True
-    except sqlite3.Error: return False
+    except Error: return False
     finally: conn.close()
 
 def to_excel_bytes(df):
@@ -646,7 +646,7 @@ elif page == "Proyectos" and st.session_state.admin_logged_in:
                         elif r_new['SEPARADO'] < 0:
                             st.error(f"El valor separado no puede ser negativo para {r_old['MATERIAL']}")
                         else:
-                            cursor.execute("INSERT OR IGNORE INTO stock_comprometido (insumo_id, proyecto_id) VALUES (?, ?)", (r_new['INS_ID'], proy_id))
+                            cursor.execute("INSERT INTO stock_comprometido (insumo_id, proyecto_id) VALUES (?, ?) ON CONFLICT (insumo_id, proyecto_id) DO NOTHING", (r_new['INS_ID'], proy_id))
                             cursor.execute("UPDATE stock_comprometido SET cantidad = ? WHERE insumo_id=? AND proyecto_id=?", (r_new['SEPARADO'], r_new['INS_ID'], proy_id))
                 conn.commit(); conn.close()
                 st.session_state.feedback = (" Stock separado actualizado.", "success"); st.rerun()
@@ -865,10 +865,10 @@ elif page == " Configs" and st.session_state.admin_logged_in:
                     if table == "proyectos": cursor.execute(f"INSERT INTO {table} ({col_name}, fecha_creacion) VALUES (?, ?)", (nuevo, datetime.now().strftime("%Y-%m-%d")))
                     else: cursor.execute(f"INSERT INTO {table} ({col_name}) VALUES (?)", (nuevo,))
                     conn.commit(); st.session_state.feedback = (f" {label} Creado", "success"); st.rerun()
-                except sqlite3.IntegrityError: st.error("Error: Registro duplicado.")
+                except IntegrityError: st.error("Error: Registro duplicado.")
                 finally: conn.close()
         
-        df_m = get_data(table, f"id, {col_name} as NOMBRE", "id DESC")
+        df_m = get_data(table, f'id, {col_name} as "NOMBRE"', "id DESC")
         if not df_m.empty:
             df_m.insert(0, "ELIMINAR", False)
             ed = st.data_editor(df_m, hide_index=True, key=f"ed_{table}", disabled=["id"])
@@ -895,10 +895,10 @@ elif page == " Configs" and st.session_state.admin_logged_in:
                 try:
                     cursor.execute("INSERT INTO proveedores (nombre, nit) VALUES (?, ?)", (nuevo_p, nuevo_nit))
                     conn.commit(); st.session_state.feedback = (" Proveedor Creado", "success"); st.rerun()
-                except sqlite3.IntegrityError: st.error("Error: Proveedor o NIT duplicado.")
+                except IntegrityError: st.error("Error: Proveedor o NIT duplicado.")
                 finally: conn.close()
                 
-        df_pr = get_data('proveedores', 'id, nombre as "NOMBRE", nit as NIT', 'id DESC')
+        df_pr = get_data('proveedores', 'id, nombre as "NOMBRE", nit as "NIT"', 'id DESC')
         if not df_pr.empty:
             df_pr.insert(0, "ELIMINAR", False)
             ed_pr = st.data_editor(df_pr, hide_index=True, key="ed_proveedores", disabled=["id"])
@@ -962,7 +962,7 @@ elif page == " Importar/Exportar" and st.session_state.admin_logged_in:
                             cursor.execute("UPDATE insumos SET nombre_insumo=?, unidad_medida=?, stock_actual=?, categoria_id=?, cuenta_id=?, ultimo_precio=?, ajuste_precio=?, ultimo_proveedor=? WHERE id=?",
                                            (normalize(r['NOMBRE']), normalize(r['UNIDAD']), r['STOCK'], c_id, ct_id, r.get('PRECIO', 0), r.get('AJUSTE', 0), normalize(r.get('PROVEEDOR', '')), r['id']))
                         else:
-                            cursor.execute("INSERT OR IGNORE INTO insumos (nombre_insumo, unidad_medida, stock_actual, categoria_id, cuenta_id, ultimo_precio, ajuste_precio, ultimo_proveedor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            cursor.execute("INSERT INTO insumos (nombre_insumo, unidad_medida, stock_actual, categoria_id, cuenta_id, ultimo_precio, ajuste_precio, ultimo_proveedor) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (nombre_insumo) DO NOTHING",
                                            (normalize(r['NOMBRE']), normalize(r['UNIDAD']), r['STOCK'], c_id, ct_id, r.get('PRECIO', 0), r.get('AJUSTE', 0), normalize(r.get('PROVEEDOR', ''))))
                 conn.commit(); conn.close()
                 st.session_state.feedback = (" Sincronización Exitosa", "success"); st.rerun()
@@ -991,7 +991,7 @@ elif page == "Usuarios" and st.session_state.admin_logged_in:
                     cursor.execute("INSERT INTO users (password_hash, role, nombre, apellido, cc, pin_hash) VALUES (?, ?, ?, ?, ?, ?)",
                                    (hash_val(u_pwd) if u_rol=="ADMIN" else None, u_rol, u_nom, u_ape, u_cc, hash_val(u_pin)))
                     conn.commit(); st.session_state.feedback = (" Creado exitosamente.", "success"); st.rerun()
-                except sqlite3.IntegrityError: st.error(" La CC ya existe.")
+                except IntegrityError: st.error(" La CC ya existe.")
                 finally: conn.close()
 
     with t_editar:
@@ -1022,7 +1022,7 @@ elif page == "Usuarios" and st.session_state.admin_logged_in:
                             if e_pwd and e_rol == "ADMIN": cursor.execute("UPDATE users SET password_hash=? WHERE id=?", (hash_val(e_pwd), u_id))
                             if e_pin: cursor.execute("UPDATE users SET pin_hash=? WHERE id=?", (hash_val(e_pin), u_id))
                             conn.commit(); st.session_state.feedback = (" Usuario actualizado.", "success"); st.rerun()
-                        except sqlite3.IntegrityError: st.error(" Error al actualizar. Verifique que la CC no esté duplicada.")
+                        except IntegrityError: st.error(" Error al actualizar. Verifique que la CC no esté duplicada.")
                         finally: conn.close()
 
     with t_eliminar:
