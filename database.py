@@ -35,6 +35,14 @@ class PostgresCursor:
         q_converted = query.replace('?', '%s')
             
         if params:
+            import numpy as np
+            clean_params = []
+            for p in params:
+                if isinstance(p, (np.integer, np.floating, np.bool_)):
+                    clean_params.append(p.item())
+                else:
+                    clean_params.append(p)
+            params = tuple(clean_params)
             self.cursor.execute(q_converted, params)
         else:
             self.cursor.execute(q_converted)
