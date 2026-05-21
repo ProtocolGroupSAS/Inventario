@@ -1,5 +1,6 @@
 import os
 import psycopg2
+from psycopg2 import IntegrityError, Error
 from datetime import datetime
 import hashlib
 import streamlit as st
