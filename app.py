@@ -872,15 +872,26 @@ elif page == " Configs" and st.session_state.admin_logged_in:
         if not df_m.empty:
             df_m.insert(0, "ELIMINAR", False)
             ed = st.data_editor(df_m, hide_index=True, key=f"ed_{table}", disabled=["id"])
-            if st.button(f" Guardar Cambios en {label}"):
+            
+            num_dels = len(ed[ed["ELIMINAR"]])
+            c_b1, c_b2 = st.columns(2)
+            
+            if c_b1.button(f" Guardar Cambios en {label}", key=f"save_{table}"):
                 conn = get_connection(); cursor = conn.cursor()
                 for i, r in ed.iterrows():
-                    if r['ELIMINAR']:
-                        cursor.execute(f"DELETE FROM {table} WHERE id=?", (r['id'],))
-                    else:
+                    if not r['ELIMINAR']:
                         cursor.execute(f"UPDATE {table} SET {col_name}=? WHERE id=?", (normalize(r['NOMBRE']), r['id']))
                 conn.commit(); conn.close()
                 st.session_state.feedback = (f" {label} actualizado.", "success"); st.rerun()
+                
+            if num_dels > 0:
+                if c_b2.button(f" ELIMINAR {num_dels} {label.upper()}(S)", key=f"del_{table}"):
+                    conn = get_connection(); cursor = conn.cursor()
+                    for i, r in ed.iterrows():
+                        if r['ELIMINAR']:
+                            cursor.execute(f"DELETE FROM {table} WHERE id=?", (r['id'],))
+                    conn.commit(); conn.close()
+                    st.session_state.feedback = (f" {label}(s) eliminado(s).", "success"); st.rerun()
 
     with t_proy: render_maestro("proyectos", "nombre_proyecto", "Proyecto")
     
@@ -902,13 +913,26 @@ elif page == " Configs" and st.session_state.admin_logged_in:
         if not df_pr.empty:
             df_pr.insert(0, "ELIMINAR", False)
             ed_pr = st.data_editor(df_pr, hide_index=True, key="ed_proveedores", disabled=["id"])
-            if st.button(" Guardar Cambios en Proveedores"):
+            
+            num_dels_pr = len(ed_pr[ed_pr["ELIMINAR"]])
+            c_b1, c_b2 = st.columns(2)
+            
+            if c_b1.button(" Guardar Cambios en Proveedores"):
                 conn = get_connection(); cursor = conn.cursor()
                 for i, r in ed_pr.iterrows():
-                    if r['ELIMINAR']: cursor.execute("DELETE FROM proveedores WHERE id=?", (r['id'],))
-                    else: cursor.execute("UPDATE proveedores SET nombre=?, nit=? WHERE id=?", (normalize(r['NOMBRE']), normalize(r['NIT']), r['id']))
+                    if not r['ELIMINAR']:
+                        cursor.execute("UPDATE proveedores SET nombre=?, nit=? WHERE id=?", (normalize(r['NOMBRE']), normalize(r['NIT']), r['id']))
                 conn.commit(); conn.close()
                 st.session_state.feedback = (" Proveedores actualizados.", "success"); st.rerun()
+                
+            if num_dels_pr > 0:
+                if c_b2.button(f" ELIMINAR {num_dels_pr} PROVEEDOR(ES)"):
+                    conn = get_connection(); cursor = conn.cursor()
+                    for i, r in ed_pr.iterrows():
+                        if r['ELIMINAR']:
+                            cursor.execute("DELETE FROM proveedores WHERE id=?", (r['id'],))
+                    conn.commit(); conn.close()
+                    st.session_state.feedback = (" Proveedores eliminados.", "success"); st.rerun()
 
     with t_cat: render_maestro("categorias", "nombre", "Categoría")
     with t_cta: render_maestro("cuentas_contables", "nombre", "Cuenta Contable")
