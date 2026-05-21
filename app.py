@@ -413,10 +413,24 @@ elif page == "Inventario" and st.session_state.admin_logged_in:
         if c_b2.button("Eliminar Seleccionados"):
             del_ids = ed_stock[ed_stock["ELIMINAR"]]["ID"].tolist()
             if del_ids:
+                st.session_state.confirm_delete_inventario = del_ids
+                st.rerun()
+            else:
+                st.warning("No hay elementos seleccionados para eliminar.")
+
+        if st.session_state.get("confirm_delete_inventario"):
+            del_ids = st.session_state.confirm_delete_inventario
+            st.warning(f"⚠️ ¿Está seguro de eliminar {len(del_ids)} insumo(s)?")
+            col_c1, col_c2 = st.columns(2)
+            if col_c1.button("✅ Sí, eliminar", key="conf_yes_inventario"):
                 conn = get_connection(); cursor = conn.cursor()
                 for d_id in del_ids: cursor.execute("DELETE FROM insumos WHERE id=?", (d_id,))
                 conn.commit(); conn.close()
+                del st.session_state.confirm_delete_inventario
                 st.session_state.feedback = ("Insumos eliminados", "success"); st.rerun()
+            if col_c2.button("❌ Cancelar", key="conf_no_inventario"):
+                del st.session_state.confirm_delete_inventario
+                st.rerun()
 
         st.write("---")
         st.write("#### Distribucion de Stock Comprometido por Proyecto")
@@ -699,12 +713,24 @@ elif page == "Ordenes de Compra" and st.session_state.admin_logged_in:
                     df_dl.insert(1, 'Proyecto', r['PROYECTO'])
                     c_dl.download_button(" Descargar Orden PDF/Excel", to_excel_bytes(df_dl), f"Orden_{r['ID']}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', key=f"dl_{r['ID']}")
                     
+                    confirm_key_ord = f"confirm_delete_orden_{r['ID']}"
                     if c_del.button(f" Eliminar Orden", key=f"del_o_{r['ID']}"):
-                        conn = get_connection(); cursor = conn.cursor()
-                        cursor.execute("DELETE FROM ordenes_items WHERE orden_id=?", (r['ID'],))
-                        cursor.execute("DELETE FROM ordenes_compra WHERE id=?", (r['ID'],))
-                        conn.commit(); conn.close()
-                        st.session_state.feedback = (" Orden Eliminada.", "success"); st.rerun()
+                        st.session_state[confirm_key_ord] = True
+                        st.rerun()
+
+                    if st.session_state.get(confirm_key_ord):
+                        st.warning(f"⚠️ ¿Está seguro de eliminar la Orden #{r['ID']}?")
+                        col_c1, col_c2 = st.columns(2)
+                        if col_c1.button("✅ Sí, eliminar", key=f"conf_yes_o_{r['ID']}"):
+                            conn = get_connection(); cursor = conn.cursor()
+                            cursor.execute("DELETE FROM ordenes_items WHERE orden_id=?", (r['ID'],))
+                            cursor.execute("DELETE FROM ordenes_compra WHERE id=?", (r['ID'],))
+                            conn.commit(); conn.close()
+                            del st.session_state[confirm_key_ord]
+                            st.session_state.feedback = (" Orden Eliminada.", "success"); st.rerun()
+                        if col_c2.button("❌ Cancelar", key=f"conf_no_o_{r['ID']}"):
+                            del st.session_state[confirm_key_ord]
+                            st.rerun()
 
     with t_create:
         st.write("#### Añade materiales y cantidades a tu orden de compra general (Sin Proyecto)")
@@ -821,8 +847,20 @@ elif page == "Analisis" and st.session_state.admin_logged_in:
             ed_in = st.data_editor(df_in_filt, use_container_width=True, hide_index=True, disabled=[c for c in df_in_filt.columns if c != "ELIMINAR"])
             in_dels = ed_in[ed_in["ELIMINAR"]]["ID"].tolist()
             if in_dels and st.button(f" ELIMINAR {len(in_dels)} ENTRADAS"):
-                for idx in in_dels: delete_item("movimientos", idx)
-                st.session_state.feedback = (" Entradas eliminadas.", "success"); st.rerun()
+                st.session_state.confirm_delete_entradas = in_dels
+                st.rerun()
+
+            if st.session_state.get("confirm_delete_entradas"):
+                entradas_to_del = st.session_state.confirm_delete_entradas
+                st.warning(f"⚠️ ¿Está seguro de eliminar {len(entradas_to_del)} entrada(s)?")
+                col_c1, col_c2 = st.columns(2)
+                if col_c1.button("✅ Sí, eliminar", key="conf_yes_entradas"):
+                    for idx in entradas_to_del: delete_item("movimientos", idx)
+                    del st.session_state.confirm_delete_entradas
+                    st.session_state.feedback = (" Entradas eliminadas.", "success"); st.rerun()
+                if col_c2.button("❌ Cancelar", key="conf_no_entradas"):
+                    del st.session_state.confirm_delete_entradas
+                    st.rerun()
         else: st.info("No hay registros de entradas en este rango.")
         
     with tab_out:
@@ -846,8 +884,20 @@ elif page == "Analisis" and st.session_state.admin_logged_in:
             ed_out = st.data_editor(df_out_filt, use_container_width=True, hide_index=True, disabled=[c for c in df_out_filt.columns if c != "ELIMINAR"])
             out_dels = ed_out[ed_out["ELIMINAR"]]["ID"].tolist()
             if out_dels and st.button(f" ELIMINAR {len(out_dels)} SALIDAS"):
-                for idx in out_dels: delete_item("movimientos", idx)
-                st.session_state.feedback = (" Salidas eliminadas.", "success"); st.rerun()
+                st.session_state.confirm_delete_salidas = out_dels
+                st.rerun()
+
+            if st.session_state.get("confirm_delete_salidas"):
+                salidas_to_del = st.session_state.confirm_delete_salidas
+                st.warning(f"⚠️ ¿Está seguro de eliminar {len(salidas_to_del)} salida(s)?")
+                col_c1, col_c2 = st.columns(2)
+                if col_c1.button("✅ Sí, eliminar", key="conf_yes_salidas"):
+                    for idx in salidas_to_del: delete_item("movimientos", idx)
+                    del st.session_state.confirm_delete_salidas
+                    st.session_state.feedback = (" Salidas eliminadas.", "success"); st.rerun()
+                if col_c2.button("❌ Cancelar", key="conf_no_salidas"):
+                    del st.session_state.confirm_delete_salidas
+                    st.rerun()
         else: st.info("No hay registros de salidas en este rango.")
 
 elif page == " Configs" and st.session_state.admin_logged_in:
@@ -884,14 +934,27 @@ elif page == " Configs" and st.session_state.admin_logged_in:
                 conn.commit(); conn.close()
                 st.session_state.feedback = (f" {label} actualizado.", "success"); st.rerun()
                 
+            confirm_key_maestro = f"confirm_delete_maestro_{table}"
             if num_dels > 0:
                 if c_b2.button(f" ELIMINAR {num_dels} {label.upper()}(S)", key=f"del_{table}"):
+                    del_ids = ed[ed["ELIMINAR"]]["id"].tolist()
+                    st.session_state[confirm_key_maestro] = del_ids
+                    st.rerun()
+
+            if st.session_state.get(confirm_key_maestro):
+                del_ids = st.session_state[confirm_key_maestro]
+                st.warning(f"⚠️ ¿Está seguro de eliminar {len(del_ids)} {label}(s)?")
+                col_c1, col_c2 = st.columns(2)
+                if col_c1.button("✅ Sí, eliminar", key=f"conf_yes_maestro_{table}"):
                     conn = get_connection(); cursor = conn.cursor()
-                    for i, r in ed.iterrows():
-                        if r['ELIMINAR']:
-                            cursor.execute(f"DELETE FROM {table} WHERE id=?", (r['id'],))
+                    for d_id in del_ids:
+                        cursor.execute(f"DELETE FROM {table} WHERE id=?", (d_id,))
                     conn.commit(); conn.close()
+                    del st.session_state[confirm_key_maestro]
                     st.session_state.feedback = (f" {label}(s) eliminado(s).", "success"); st.rerun()
+                if col_c2.button("❌ Cancelar", key=f"conf_no_maestro_{table}"):
+                    del st.session_state[confirm_key_maestro]
+                    st.rerun()
 
     with t_proy: render_maestro("proyectos", "nombre_proyecto", "Proyecto")
     
@@ -927,12 +990,24 @@ elif page == " Configs" and st.session_state.admin_logged_in:
                 
             if num_dels_pr > 0:
                 if c_b2.button(f" ELIMINAR {num_dels_pr} PROVEEDOR(ES)"):
+                    del_ids = ed_pr[ed_pr["ELIMINAR"]]["id"].tolist()
+                    st.session_state.confirm_delete_proveedores = del_ids
+                    st.rerun()
+
+            if st.session_state.get("confirm_delete_proveedores"):
+                del_ids = st.session_state.confirm_delete_proveedores
+                st.warning(f"⚠️ ¿Está seguro de eliminar {len(del_ids)} proveedor(es)?")
+                col_c1, col_c2 = st.columns(2)
+                if col_c1.button("✅ Sí, eliminar", key="conf_yes_proveedores"):
                     conn = get_connection(); cursor = conn.cursor()
-                    for i, r in ed_pr.iterrows():
-                        if r['ELIMINAR']:
-                            cursor.execute("DELETE FROM proveedores WHERE id=?", (r['id'],))
+                    for d_id in del_ids:
+                        cursor.execute("DELETE FROM proveedores WHERE id=?", (d_id,))
                     conn.commit(); conn.close()
+                    del st.session_state.confirm_delete_proveedores
                     st.session_state.feedback = (" Proveedores eliminados.", "success"); st.rerun()
+                if col_c2.button("❌ Cancelar", key="conf_no_proveedores"):
+                    del st.session_state.confirm_delete_proveedores
+                    st.rerun()
 
     with t_cat: render_maestro("categorias", "nombre", "Categoría")
     with t_cta: render_maestro("cuentas_contables", "nombre", "Cuenta Contable")
@@ -1057,8 +1132,20 @@ elif page == "Usuarios" and st.session_state.admin_logged_in:
             ed_u = st.data_editor(df_del, hide_index=True, column_config={"SEL": st.column_config.CheckboxColumn()}, disabled=[c for c in df_del.columns if c != "SEL"])
             u_ids = ed_u[ed_u["SEL"] == True]["id"].tolist()
             if u_ids and st.button(f" ELIMINAR {len(u_ids)} USUARIOS SELECCIONADOS"):
-                for uid in u_ids: delete_item("users", uid)
-                st.session_state.feedback = (" Usuarios eliminados", "success"); st.rerun()
+                st.session_state.confirm_delete_usuarios = u_ids
+                st.rerun()
+
+            if st.session_state.get("confirm_delete_usuarios"):
+                del_ids = st.session_state.confirm_delete_usuarios
+                st.warning(f"⚠️ ¿Está seguro de eliminar {len(del_ids)} usuario(s)?")
+                col_c1, col_c2 = st.columns(2)
+                if col_c1.button("✅ Sí, eliminar", key="conf_yes_usuarios"):
+                    for uid in del_ids: delete_item("users", uid)
+                    del st.session_state.confirm_delete_usuarios
+                    st.session_state.feedback = (" Usuarios eliminados", "success"); st.rerun()
+                if col_c2.button("❌ Cancelar", key="conf_no_usuarios"):
+                    del st.session_state.confirm_delete_usuarios
+                    st.rerun()
 
 elif page == "Backup" and st.session_state.admin_logged_in:
     st.subheader("Copias de Seguridad (Backup)")
