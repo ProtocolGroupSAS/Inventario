@@ -8,7 +8,44 @@ import os
 
 # Configuration
 st.set_page_config(page_title="Protocol Inventory", layout="wide", initial_sidebar_state="expanded")
-init_db()
+
+if 'db_error' not in st.session_state:
+    st.session_state.db_error = None
+
+try:
+    init_db()
+    st.session_state.db_error = None
+except Exception as e:
+    st.session_state.db_error = str(e)
+
+if st.session_state.db_error:
+    st.markdown('<div class="logo-container"><span class="logo-text">protocol<span class="logo-dot">.</span></span></div>', unsafe_allow_html=True)
+    st.error("### 🔴 Servidor de Base de Datos no Disponible")
+    st.markdown(f"""
+    **El sistema no puede conectarse a la base de datos remota en la nube (Supabase).**
+    
+    Para evitar la pérdida de sincronización y garantizar la integridad de los datos entre todas las terminales conectadas a la red, **el acceso al sistema ha sido bloqueado temporalmente**.
+    
+    **Causa probable:**
+    - El proyecto en Supabase está **pausado** por inactividad.
+    - Hay un problema de conexión a Internet en esta terminal.
+    
+    **¿Cómo solucionarlo?**
+    1. Inicia sesión en el panel de **Supabase**.
+    2. Si tu proyecto está en estado pausado (paused), haz clic en **"Resume Project"** (Reanudar Proyecto).
+    3. Una vez que el proyecto esté activo e iniciado, haz clic en el botón de abajo para reintentar.
+    
+    *Detalle técnico del error:* `{st.session_state.db_error}`
+    """)
+    
+    if st.button("🔄 Reintentar Conexión"):
+        import database
+        database.DB_MODE = None
+        st.session_state.db_error = None
+        st.rerun()
+        
+    st.stop()
+
 
 # --- AUTH SYSTEM ---
 def hash_val(val): return hashlib.sha256(val.encode()).hexdigest() if val else ""
@@ -225,6 +262,15 @@ with st.sidebar:
         if st.button("Cerrar Sesion"):
             st.session_state.admin_logged_in = False
             st.rerun()
+
+    st.write("---")
+    import database
+    if getattr(database, "DB_MODE", "POSTGRES") == "POSTGRES":
+        st.success("🟢 Base de Datos: Nube (Supabase)")
+    else:
+        st.error("🔴 Base de Datos: Desconectada")
+
+
 
 # --- MAIN PAGE LOGIC ---
 if st.session_state.feedback:
